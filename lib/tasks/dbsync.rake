@@ -1,5 +1,3 @@
-# Easy database syncing for development/staging
-
 desc "Alias for dbsync:pull"
 task :dbsync do
   Rake::Task["dbsync:pull"].invoke
@@ -7,17 +5,7 @@ end
 
 namespace :dbsync do
   task :setup => :environment do
-    module Dbsync
-      LOGGER  = $stdout
-      CONFIG  = Rails.application.config.dbsync
-      
-      CONFIG['remote']  = "#{CONFIG['remote_host']}:" + File.join(CONFIG['remote_dir'], CONFIG['filename'])
-      CONFIG['local']   = File.join CONFIG['local_dir'], CONFIG['filename']
-    end
-    
-    # ---------------
-    
-    Dbsync::LOGGER.puts "Environment: #{Rails.env}"
+    Dbsync.info "Environment: #{Rails.env}"
     
     if Rails.env == 'production'
       raise "These tasks are destructive and shouldn't be used in the production environment."
@@ -25,24 +13,24 @@ namespace :dbsync do
 
     #-----------------
     
-    if Dbsync::CONFIG['filename'].blank?
+    if Dbsync.config.filename.blank?
       raise "No dump filename specified."
-    elsif Dbsync::CONFIG['remote'].blank?
+    elsif Dbsync.config.remote.blank?
       raise "No remote dump file specified."
     end
     
     #-----------------
     
-    VERBOSE = %w{1 true}.include? ENV['VERBOSE']
-    DB      = ActiveRecord::Base.configurations[Rails.env]
+    Dbsync.config.verbose = %w{1 true}.include? ENV['VERBOSE']
+    Dbsync.config.database = ActiveRecord::Base.configurations[Rails.env]
   end
   
   #-----------------------
   
   desc "Show the dbsync configuration"
   task :config => :setup do
-    Dbsync::LOGGER.puts "Config:"
-    Dbsync::LOGGER.puts Dbsync::CONFIG.to_yaml
+    Dbsync.info "Config:"
+    Dbsync.info Dbsync.config.to_yaml
   end
     
   #-----------------------
@@ -57,58 +45,47 @@ namespace :dbsync do
   
   desc "Update the local dump file from the remote source"
   task :fetch => :setup do
-    Dbsync::LOGGER.puts "Fetching #{Dbsync::CONFIG['remote']} using rsync"
-    output = %x{ rsync -v #{Dbsync::CONFIG['remote']} #{Dbsync::CONFIG['local']} }
+    Dbsync.info "Fetching #{Dbsync.config.remote} using rsync"
+    output = %x{ rsync -v #{Dbsync.config.remote} #{Dbsync.config.local} }
     
-    if VERBOSE
-      Dbsync::LOGGER.puts output
-    end
-    
-    Dbsync::LOGGER.puts "Finished."
+    Dbsync.debug output
+    Dbsync.info "Finished."
   end
 
   #-----------------------
 
   desc "Copy the remote dump file to a local destination"
   task :clone_dump => :setup do
-    Dbsync::LOGGER.puts "Fetching #{Dbsync::CONFIG['remote']} using scp"
-    output = %x{ scp #{Dbsync::CONFIG['remote']} #{Dbsync::CONFIG['local_dir']}/ }
+    Dbsync.info "Fetching #{Dbsync.config.remote} using scp"
+    output = %x{ scp #{Dbsync.config.remote} #{Dbsync.config.local_dir}/ }
     
-    if VERBOSE
-      Dbsync::LOGGER.puts output
-    end
-    
-    Dbsync::LOGGER.puts "Finished."
+    Dbsync.debug output
+    Dbsync.info "Finished."
   end
 
   #-----------------------
   
   desc "Merge the local dump file into the local database"
   task :merge => :setup do
-    Dbsync::LOGGER.puts "Dumping data from #{Dbsync::CONFIG['local']} into #{DB['database']}"
+    Dbsync.info "Dumping data from #{Dbsync.config.local} into #{Dbsync.config.database['database']}"
 
     command =  "mysql "
-    command += "-u #{DB['username']} " if DB['username'].present?
-    command += "-p#{DB['password']} "  if DB['password'].present?
-    command += "-h #{DB['host']} "     if DB['host'].present?
-    command += "#{DB['database']} < #{Dbsync::CONFIG['local']}"
+    command += "-u #{Dbsync.config.database['username']} " if Dbsync.config.database['username'].present?
+    command += "-p#{Dbsync.config.database['password']} "  if Dbsync.config.database['password'].present?
+    command += "-h #{Dbsync.config.database['host']} "     if Dbsync.config.database['host'].present?
+    command += "#{Dbsync.config.database['database']} < #{Dbsync.config.local}"
     
     output = %x{#{command}}
     
-    if VERBOSE
-      Dbsync::LOGGER.puts output
-    end
-    
-    Dbsync::LOGGER.puts "Finished."
+    Dbsync.debug outout
+    Dbsync.info "Finished."
   end
 
   #-----------------------
   
   desc "Drop & Create the database, then load the dump file."
   task :reset => :setup do
-    if VERBOSE
-      Dbsync::LOGGER.puts "Resetting database..."
-    end
+    Dbsync.debug "Resetting database..."
     
     Rake::Task["db:drop"].invoke
     Rake::Task["db:create"].invoke
