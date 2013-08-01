@@ -13,6 +13,7 @@ namespace :dbsync do
       
       CONFIG['remote']  = "#{CONFIG['remote_host']}:" + File.join(CONFIG['remote_dir'], CONFIG['filename'])
       CONFIG['local']   = File.join CONFIG['local_dir'], CONFIG['filename']
+      CONFIG['gzip']    = CONFIG['filename'].include?(".tar.gz")
     end
     
     # ---------------
@@ -59,6 +60,7 @@ namespace :dbsync do
   task :fetch => :setup do
     Dbsync::LOGGER.puts "Fetching #{Dbsync::CONFIG['remote']} using rsync"
     output = %x{ rsync -v #{Dbsync::CONFIG['remote']} #{Dbsync::CONFIG['local']} }
+    output += %x{ tar xvzf #{Dbsync::CONFIG['local']} } if Dbsync::CONFIG['gzip']
     
     if VERBOSE
       Dbsync::LOGGER.puts output
@@ -73,6 +75,7 @@ namespace :dbsync do
   task :clone_dump => :setup do
     Dbsync::LOGGER.puts "Fetching #{Dbsync::CONFIG['remote']} using scp"
     output = %x{ scp #{Dbsync::CONFIG['remote']} #{Dbsync::CONFIG['local_dir']}/ }
+    output += %x{ tar xvzf #{Dbsync::CONFIG['local']} } if Dbsync::CONFIG['gzip']
     
     if VERBOSE
       Dbsync::LOGGER.puts output
@@ -86,12 +89,14 @@ namespace :dbsync do
   desc "Merge the local dump file into the local database"
   task :merge => :setup do
     Dbsync::LOGGER.puts "Dumping data from #{Dbsync::CONFIG['local']} into #{DB['database']}"
-
+    
+    local_file = Dbsync::CONFIG['gzip'] ? Dbsync::CONFIG['local'].chomp(".tar.gz") : Dbsync::CONFIG['local']
+    
     command =  "mysql "
     command += "-u #{DB['username']} " if DB['username'].present?
     command += "-p#{DB['password']} "  if DB['password'].present?
     command += "-h #{DB['host']} "     if DB['host'].present?
-    command += "#{DB['database']} < #{Dbsync::CONFIG['local']}"
+    command += "#{DB['database']} < #{local_file}"
     
     output = %x{#{command}}
     
