@@ -60,7 +60,7 @@ namespace :dbsync do
   task :fetch => :setup do
     Dbsync::LOGGER.puts "Fetching #{Dbsync::CONFIG['remote']} using rsync"
     output = %x{ rsync -v #{Dbsync::CONFIG['remote']} #{Dbsync::CONFIG['local']} }
-    output += %x{ tar xvzf #{Dbsync::CONFIG['local']} -C #{Dbsync::CONFIG['local'].chomp(".tar.gz")} } if Dbsync::CONFIG['gzip']
+    output += %x{ tar xvzf #{Dbsync::CONFIG['local']} -C #{File.dirname(Dbsync::CONFIG['local'].chomp(".tar.gz"))} } if Dbsync::CONFIG['gzip']
     
     if VERBOSE
       Dbsync::LOGGER.puts output
@@ -75,7 +75,7 @@ namespace :dbsync do
   task :clone_dump => :setup do
     Dbsync::LOGGER.puts "Fetching #{Dbsync::CONFIG['remote']} using scp"
     output = %x{ scp #{Dbsync::CONFIG['remote']} #{Dbsync::CONFIG['local_dir']}/ }
-    output += %x{ tar xvzf #{Dbsync::CONFIG['local']} -C #{Dbsync::CONFIG['local'].chomp(".tar.gz")} } if Dbsync::CONFIG['gzip']
+    output += %x{ tar xvzf #{Dbsync::CONFIG['local']} -C #{File.dirname(Dbsync::CONFIG['local'].chomp(".tar.gz"))} } if Dbsync::CONFIG['gzip']
     
     if VERBOSE
       Dbsync::LOGGER.puts output
