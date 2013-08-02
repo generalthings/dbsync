@@ -12,7 +12,7 @@ namespace :dbsync do
       CONFIG  = Rails.application.config.dbsync
       
       CONFIG['remote']  = "#{CONFIG['remote_host']}:" + File.join(CONFIG['remote_dir'], CONFIG['filename'])
-      CONFIG['local']   = File.join CONFIG['local_dir'], CONFIG['filename']
+      CONFIG['local']   = File.expand_path(File.join(CONFIG['local_dir'], CONFIG['filename']))
       CONFIG['gzip']    = CONFIG['filename'].include?(".tar.gz")
     end
     
